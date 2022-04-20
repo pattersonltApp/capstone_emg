@@ -93,7 +93,7 @@ def main():
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
     # setup early stopping with early stopping parameters
-    early_stopping = EarlyStopping(monitor='val_accuracy', verbose=1, patience=100)
+    early_stopping = EarlyStopping(monitor='val_accuracy', verbose=1, patience=1000)
     # setup model checkpointing
     model_checkpoint = ModelCheckpoint(
         filepath=os.path.join(output_path, f'{datetime.datetime.now()}.h5'),  # always overwrite the existing model
