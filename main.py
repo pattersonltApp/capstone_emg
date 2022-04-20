@@ -1,3 +1,4 @@
+import datetime
 import os
 import pandas as pd
 import numpy as np
@@ -14,7 +15,10 @@ from keras.layers import BatchNormalization
 from keras.layers import Activation
 from keras.callbacks import ModelCheckpoint
 from keras import optimizers
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.python.keras.callbacks import EarlyStopping
 
+output_path = 'models/'
 
 def load_file(filepath):
     df = pd.read_csv(filepath, header=None)
@@ -56,38 +60,51 @@ def main():
     test = np.concatenate((test, test2))
     test_labels = np.concatenate((test_labels, test_labels2))
 
-    optimizer = tf.keras.optimizers.Adam(lr=0.000011288378916846883)
-    #optimizer = 'Adamax'
+    #optimizer = tf.keras.optimizers.Adam(lr=0.000011288378916846883)
+    optimizer = 'Adamax'
 
     batch_size = 51
     model = Sequential()
     model.add(Conv1D(filters=32, kernel_size=4, activation='relu', input_shape=(4, 1000)))
     model.add(BatchNormalization())
-    model.add(Activation('PReLU'))
+    act = PReLU()
+    model.add(act)
     model.add(Dropout(0.2))
 
     model.add(MaxPooling1D(padding='same'))
 
     model.add(Conv1D(filters=64, kernel_size=4, activation='relu', padding='same', input_shape=(4, 1000)))
     model.add(BatchNormalization())
-    model.add(Activation('PReLU'))
+    act = PReLU()
+    model.add(act)
     model.add(Dropout(0.2))
 
     model.add(MaxPooling1D(padding='same'))
 
-    model.add(Dense(500, activation='PReLU'))
+    model.add(Dense(256))
+    act = PReLU()
+    model.add(act)
     model.add(BatchNormalization())
     model.add(Dropout(0.2))
 
     model.add(Dense(26, activation='softmax'))
     model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-    checkpoint = ModelCheckpoint('models/model.hd5', monitor='val_accuracy', verbose=1, save_weights_only=True)
+    # setup early stopping with early stopping parameters
+    early_stopping = EarlyStopping(monitor='val_accuracy', verbose=1, patience=100)
+    # setup model checkpointing
+    model_checkpoint = ModelCheckpoint(
+        filepath=os.path.join(output_path, f'{datetime.datetime.now()}.h5'),  # always overwrite the existing model
+        save_weights_only=False, save_freq='epoch',
+        save_best_only=True, monitor='val_accuracy', verbose=1)  # only save models that improve the 'monitored' value
+    callbacks = [early_stopping, model_checkpoint, tensorboard_callback]
 
     #model.fit(train, train_labels, epochs=100000, batch_size=5, verbose=1, callbacks=[checkpoint])
-    model.fit(train, train_labels, epochs=10000, batch_size=5, verbose=1)
-    _, accuracy = model.evaluate(test, test_labels, batch_size=5, verbose=1)
-    print(accuracy)
+    model.fit(train, train_labels, validation_data=(test, test_labels), epochs=10000, batch_size=32, verbose=1, callbacks = callbacks)
+    #_, accuracy = model.evaluate(test, test_labels, batch_size=25, verbose=1)
+    #print(accuracy)
 
 
 if __name__ == '__main__':
